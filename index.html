@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>零用金請款系統</title>
+<style>
+  *{box-sizing:border-box;}
+  :root{
+    --bg:#f4f6fb; --card:#fff; --text:#1f2937; --muted:#6b7280; --line:#e5e7eb;
+    --primary:#4f46e5; --primary-dark:#4338ca;
+    --green:#059669; --amber:#d97706; --red:#dc2626; --radius:14px;
+  }
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font-family:system-ui,-apple-system,"Segoe UI","Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1180px; margin:0 auto; padding:28px 20px 64px;}
+
+  /* ── 標題 ── */
+  header h1{margin:0 0 6px; font-size:24px; letter-spacing:.5px;}
+  header p{margin:0; color:var(--muted); font-size:14px;}
+
+  /* ── 統計 ── */
+  .stats{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin:22px 0;}
+  .stat{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px;}
+  .stat .label{font-size:12.5px; color:var(--muted); margin-bottom:8px;}
+  .stat .value{font-size:21px; font-weight:700;}
+  .stat .sub{font-size:12px; color:var(--muted); margin-top:4px;}
+  .stat.accent .value{color:var(--primary);}
+  .stat.ok .value{color:var(--green);}
+
+  /* ── 版面 ── */
+  .layout{display:grid; grid-template-columns:390px 1fr; gap:20px; align-items:start;}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:20px;}
+  .card h2{margin:0 0 16px; font-size:15px; letter-spacing:.3px;}
+
+  /* ── 表單 ── */
+  .field{margin-bottom:14px;}
+  .field label{display:block; font-size:12.5px; color:var(--muted); margin-bottom:6px; font-weight:600;}
+  .field input, .field select, .field textarea{
+    width:100%; padding:10px 12px; font-size:14px; font-family:inherit; color:var(--text);
+    background:#fbfcfe; border:1px solid var(--line); border-radius:10px; outline:none;
+    transition:border-color .15s, box-shadow .15s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus{
+    border-color:var(--primary); background:#fff; box-shadow:0 0 0 3px rgba(79,70,229,.12);
+  }
+  .field textarea{resize:vertical; min-height:76px;}
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+  .hint{font-size:11.5px; color:var(--muted); margin-top:5px;}
+
+  .file-drop{
+    display:flex; align-items:center; justify-content:center; text-align:center;
+    padding:14px; border:1.5px dashed #cbd5e1; border-radius:10px; cursor:pointer;
+    font-size:13px; color:var(--muted); background:#fbfcfe; transition:.15s;
+  }
+  .file-drop:hover{border-color:var(--primary); color:var(--primary); background:#f5f3ff;}
+  #preview{display:none; margin-top:10px; position:relative;}
+  #preview img{max-width:100%; border-radius:10px; border:1px solid var(--line); display:block;}
+  #preview button{
+    position:absolute; top:8px; right:8px; border:none; background:rgba(17,24,39,.75); color:#fff;
+    width:26px; height:26px; border-radius:50%; cursor:pointer; font-size:15px; line-height:1;
+  }
+
+  /* ── 按鈕 ── */
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:6px;
+    padding:10px 16px; font-size:14px; font-family:inherit; font-weight:600;
+    border:1px solid transparent; border-radius:10px; cursor:pointer; transition:.15s;
+  }
+  .btn-primary{background:var(--primary); color:#fff; width:100%;}
+  .btn-primary:hover{background:var(--primary-dark);}
+  .btn-primary:disabled{opacity:.6; cursor:not-allowed;}
+  .btn-sm{padding:6px 12px; font-size:12.5px; border-radius:8px; font-weight:600;}
+  .btn-ok{background:#ecfdf5; color:var(--green); border-color:#a7f3d0;}
+  .btn-ok:hover{background:#d1fae5;}
+  .btn-no{background:#fef2f2; color:var(--red); border-color:#fecaca;}
+  .btn-no:hover{background:#fee2e2;}
+  .btn-ghost{background:#f8fafc; color:#475569; border-color:var(--line);}
+  .btn-ghost:hover{background:#eef2f7;}
+
+  /* ── 工具列 ── */
+  .toolbar{
+    display:flex; flex-wrap:wrap; gap:8px; align-items:center; justify-content:space-between;
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:12px 14px; margin-bottom:14px;
+  }
+  .filters{display:flex; flex-wrap:wrap; gap:6px;}
+  .chip{
+    padding:7px 14px; font-size:13px; font-family:inherit; font-weight:600; color:#475569;
+    background:#f8fafc; border:1px solid var(--line); border-radius:999px; cursor:pointer; transition:.15s;
+  }
+  .chip:hover{background:#eef2f7;}
+  .chip.active{background:var(--primary); border-color:var(--primary); color:#fff;}
+
+  /* ── 請款卡片 ── */
+  .claim{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:16px 18px; margin-bottom:12px; border-left:4px solid var(--line);
+  }
+  .claim.pending{border-left-color:var(--amber);}
+  .claim.approved{border-left-color:var(--green);}
+  .claim.rejected{border-left-color:var(--red);}
+  .claim-head{display:flex; justify-content:space-between; align-items:flex-start; gap:12px;}
+  .claim-id{font-size:12px; color:var(--muted); font-family:ui-monospace,monospace; letter-spacing:.4px;}
+  .claim-amount{font-size:19px; font-weight:700; white-space:nowrap;}
+  .badge{
+    display:inline-flex; padding:3px 9px; border-radius:999px;
+    font-size:11.5px; font-weight:700; margin-left:8px; vertical-align:1px;
+  }
+  .badge.pending{background:#fef3c7; color:#92400e;}
+  .badge.approved{background:#d1fae5; color:#065f46;}
+  .badge.rejected{background:#fee2e2; color:#991b1b;}
+  .claim-meta{font-size:13px; color:var(--muted); margin-top:8px;}
+  .claim-meta b{color:var(--text); font-weight:600;}
+  .claim-note{
+    font-size:13.5px; line-height:1.6; margin:9px 0 0; padding:9px 12px;
+    background:#f8fafc; border-radius:9px; white-space:pre-wrap; word-break:break-word;
+  }
+  .claim-foot{display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:12px;}
+  .thumb{
+    width:52px; height:52px; object-fit:cover; border-radius:8px;
+    border:1px solid var(--line); cursor:zoom-in; transition:.15s;
+  }
+  .thumb.big{width:320px; height:auto; cursor:zoom-out;}
+  .actions{display:flex; gap:8px; margin-left:auto;}
+  .empty{
+    text-align:center; padding:56px 20px; color:var(--muted); font-size:14px;
+    background:var(--card); border:1px dashed var(--line); border-radius:var(--radius);
+  }
+  footer{margin-top:32px; text-align:center; font-size:12px; color:var(--muted); line-height:1.8;}
+
+  @media (max-width:920px){
+    .layout{grid-template-columns:1fr;}
+    .stats{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>零用金請款</h1>
+    <p>填寫下方表單送出請款單，主管可於右側清單直接審核。</p>
+  </header>
+
+  <section class="stats">
+    <div class="stat accent">
+      <div class="label">待審核</div>
+      <div class="value" id="stPending">0 筆</div>
+      <div class="sub" id="stPendingAmt">合計 NT$ 0</div>
+    </div>
+    <div class="stat ok">
+      <div class="label">本月已核准</div>
+      <div class="value" id="stMonth">NT$ 0</div>
+      <div class="sub" id="stMonthCount">0 筆</div>
+    </div>
+    <div class="stat">
+      <div class="label">累計已核准</div>
+      <div class="value" id="stTotal">NT$ 0</div>
+      <div class="sub">所有歷史紀錄</div>
+    </div>
+  </section>
+
+  <div class="layout">
+
+    <!-- ══ 左：請款表單 ══ -->
+    <section class="card">
+      <h2>新增請款單</h2>
+      <form id="form">
+        <div class="row2">
+          <div class="field">
+            <label for="name">申請人 *</label>
+            <input id="name" required placeholder="王小明" autocomplete="name">
+          </div>
+          <div class="field">
+            <label for="dept">部門</label>
+            <input id="dept" placeholder="業務部" list="deptList" autocomplete="off">
+            <datalist id="deptList">
+              <option>業務部</option><option>行銷部</option><option>管理部</option>
+              <option>財務部</option><option>研發部</option><option>倉儲物流</option>
+            </datalist>
+          </div>
+        </div>
+
+        <div class="row2">
+          <div class="field">
+            <label for="date">請款日期 *</label>
+            <input id="date" type="date" required>
+          </div>
+          <div class="field">
+            <label for="category">費用類別 *</label>
+            <select id="category" required>
+              <option value="">請選擇</option>
+              <option>交通費</option>
+              <option>餐飲費</option>
+              <option>辦公用品</option>
+              <option>郵電運費</option>
+              <option>客戶招待</option>
+              <option>其他雜支</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="field">
+          <label for="amount">請款金額（新台幣）*</label>
+          <input id="amount" type="number" min="1" step="1" required placeholder="1200">
+        </div>
+
+        <div class="field">
+          <label for="note">用途說明 *</label>
+          <textarea id="note" required placeholder="例：拜訪客戶往返計程車資，共 3 趟。"></textarea>
+        </div>
+
+        <div class="field">
+          <label>憑證照片（選填）</label>
+          <label class="file-drop" for="receipt">📎 點此上傳收據／發票照片</label>
+          <input id="receipt" type="file" accept="image/*" hidden>
+          <div id="preview">
+            <img id="previewImg" alt="憑證預覽">
+            <button type="button" id="removeImg" title="移除">×</button>
+          </div>
+          <div class="hint">圖片會自動壓縮後暫存於此裝置。</div>
+        </div>
+
+        <button class="btn btn-primary" type="submit" id="submitBtn">送出請款單</button>
+      </form>
+    </section>
+
+    <!-- ══ 右：請款清單 ══ -->
+    <section>
+      <div class="toolbar">
+        <div class="filters" id="filters">
+          <button class="chip active" data-filter="all">全部</button>
+          <button class="chip" data-filter="pending">待審核</button>
+          <button class="chip" data-filter="approved">已核准</button>
+          <button class="chip" data-filter="rejected">已駁回</button>
+        </div>
+        <button class="btn btn-sm btn-ghost" id="exportBtn">⬇ 匯出 CSV</button>
+      </div>
+      <div id="list"></div>
+    </section>
+
+  </div>
+
+  <footer>
+    資料儲存於本機瀏覽器（localStorage），僅供單機／展示使用。<br>
+    多人正式使用請串接後端資料庫與帳號權限。
+  </footer>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  const STORAGE_KEY = 'pettyCashClaims.v1';
+  const $ = (s) => document.querySelector(s);
+
+  let claims = [];
+  let filter = 'all';
+  let receiptData = '';
+
+  /* ───────── 工具 ───────── */
+  const esc = (s) => String(s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+
+  const fmtMoney = (n) => 'NT$ ' + Number(n || 0).toLocaleString('zh-TW');
+
+  function todayStr() {
+    const d = new Date(), p = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  }
+
+  function nextId() {
+    const prefix = 'R-' + todayStr().replace(/-/g, '') + '-';
+    let max = 0;
+    claims.forEach((c) => {
+      if (c.id.startsWith(prefix)) {
+        const n = parseInt(c.id.slice(prefix.length), 10);
+        if (n > max) max = n;
+      }
+    });
+    return prefix + String(max + 1).padStart(3, '0');
+  }
+
+  /* ───────── 存取 ───────── */
+  function load() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      claims = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(claims)) claims = [];
+    } catch (e) { claims = []; }
+  }
+
+  function persist() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(claims));
+      return true;
+    } catch (e) {
+      alert('儲存失敗：瀏覽器空間可能已滿。請先「匯出 CSV」備份，再刪除較舊的請款紀錄。');
+      return false;
+    }
+  }
+
+  /* ───────── 圖片壓縮 ───────── */
+  function compressImage(file, maxSide = 800, quality = 0.65) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.max(1, Math.round(img.width * scale));
+        canvas.height = Math.max(1, Math.round(img.height * scale));
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('圖片讀取失敗')); };
+      img.src = url;
+    });
+  }
+
+  /* ───────── 統計 ───────── */
+  function renderStats() {
+    const pending = claims.filter((c) => c.status === 'pending');
+    const approved = claims.filter((c) => c.status === 'approved');
+    const ym = todayStr().slice(0, 7);
+    const month = approved.filter((c) => (c.date || '').startsWith(ym));
+
+    const sum = (arr) => arr.reduce((t, c) => t + Number(c.amount || 0), 0);
+
+    $('#stPending').textContent = pending.length + ' 筆';
+    $('#stPendingAmt').textContent = '合計 ' + fmtMoney(sum(pending));
+    $('#stMonth').textContent = fmtMoney(sum(month));
+    $('#stMonthCount').textContent = month.length + ' 筆';
+    $('#stTotal').textContent = fmtMoney(sum(approved));
+  }
+
+  /* ───────── 清單 ───────── */
+  const STATUS_TEXT = { pending: '待審核', approved: '已核准', rejected: '已駁回' };
+
+  function itemHtml(c) {
+    const actions = c.status === 'pending'
+      ? `<button class="btn btn-sm btn-ok"   data-act="approve" data-id="${esc(c.id)}">✓ 核准</button>
+         <button class="btn btn-sm btn-no"   data-act="reject"  data-id="${esc(c.id)}">✕ 駁回</button>`
+      : `<button class="btn btn-sm btn-ghost" data-act="reopen" data-id="${esc(c.id)}">↺ 改回待審核</button>`;
+
+    const thumb = c.receipt
+      ? `<img class="thumb" src="${c.receipt}" alt="憑證" data-thumb>`
+      : '';
+
+    return `
+      <article class="claim ${c.status}">
+        <div class="claim-head">
+          <div>
+            <span class="claim-id">${esc(c.id)}</span>
+            <span class="badge ${c.status}">${STATUS_TEXT[c.status]}</span>
+          </div>
+          <div class="claim-amount">${fmtMoney(c.amount)}</div>
+        </div>
+        <div class="claim-meta">
+          <b>${esc(c.name)}</b>${c.dept ? ' · ' + esc(c.dept) : ''}
+          · ${esc(c.date)} · ${esc(c.category)}
+        </div>
+        <p class="claim-note">${esc(c.note)}</p>
+        <div class="claim-foot">
+          ${thumb}
+          <div class="actions">
+            ${actions}
+            <button class="btn btn-sm btn-ghost" data-act="delete" data-id="${esc(c.id)}">刪除</button>
+          </div>
+        </div>
+      </article>`;
+  }
+
+  function renderList() {
+    const listEl = $('#list');
+    const rows = claims
+      .filter((c) => filter === 'all' || c.status === filter)
+      .sort((a, b) => b.createdAt - a.createdAt);
+
+    if (!rows.length) {
+      listEl.innerHTML = `<div class="empty">目前沒有${filter === 'all' ? '' : STATUS_TEXT[filter]}的請款紀錄。</div>`;
+      return;
+    }
+    listEl.innerHTML = rows.map(itemHtml).join('');
+  }
+
+  function render() {
+    renderStats();
+    renderList();
+  }
+
+  /* ───────── 表單送出 ───────── */
+  $('#form').addEventListener('submit', (e) => {
+    e.preventDefault();
+
+    const name = $('#name').value.trim();
+    const dept = $('#dept').value.trim();
+    const date = $('#date').value;
+    const category = $('#category').value;
+    const amount = parseFloat($('#amount').value);
+    const note = $('#note').value.trim();
+
+    if (!name) { alert('請填寫申請人'); return; }
+    if (!date) { alert('請選擇請款日期'); return; }
+    if (!category) { alert('請選擇費用類別'); return; }
+    if (!(amount > 0)) { alert('請款金額需大於 0'); return; }
+    if (!note) { alert('請填寫用途說明'); return; }
+
+    claims.push({
+      id: nextId(),
+      name, dept, date, category,
+      amount: Math.round(amount),
+      note,
+      receipt: receiptData,
+      status: 'pending',
+      createdAt: Date.now()
+    });
+
+    if (persist()) {
+      // 保留申請人／部門，方便連續填寫
+      $('#date').value = todayStr();
+      $('#category').value = '';
+      $('#amount').value = '';
+      $('#note').value = '';
+      clearReceipt();
+      render();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  });
+
+  /* ───────── 憑證上傳 ───────── */
+  $('#receipt').addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      alert('請上傳圖片檔（JPG／PNG）');
+      e.target.value = '';
+      return;
+    }
+    const btn = $('#submitBtn');
+    btn.disabled = true;
+    btn.textContent = '圖片處理中…';
+    try {
+      receiptData = await compressImage(file);
+      $('#previewImg').src = receiptData;
+      $('#preview').style.display = 'block';
+    } catch (err) {
+      alert('圖片處理失敗，請換一張試試。');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '送出請款單';
+    }
+  });
+
+  function clearReceipt() {
+    receiptData = '';
+    $('#receipt').value = '';
+    $('#previewImg').removeAttribute('src');
+    $('#preview').style.display = 'none';
+  }
+  $('#removeImg').addEventListener('click', clearReceipt);
+
+  /* ───────── 清單操作 ───────── */
+  $('#list').addEventListener('click', (e) => {
+    // 憑證放大／縮小
+    const thumb = e.target.closest('[data-thumb]');
+    if (thumb) { thumb.classList.toggle('big'); return; }
+
+    const btn = e.target.closest('button[data-act]');
+    if (!btn) return;
+
+    const id = btn.dataset.id;
+    const act = btn.dataset.act;
+    const claim = claims.find((c) => c.id === id);
+    if (!claim) return;
+
+    if (act === 'delete') {
+      if (!confirm(`確定要刪除 ${id} 這筆請款單嗎？此動作無法復原。`)) return;
+      claims = claims.filter((c) => c.id !== id);
+    } else if (act === 'approve') {
+      claim.status = 'approved';
+      claim.reviewedAt = Date.now();
+    } else if (act === 'reject') {
+      claim.status = 'rejected';
+      claim.reviewedAt = Date.now();
+    } else if (act === 'reopen') {
+      claim.status = 'pending';
+      delete claim.reviewedAt;
+    }
+
+    if (persist()) render();
+  });
+
+  /* ───────── 篩選 ───────── */
+  $('#filters').addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    filter = chip.dataset.filter;
+    document.querySelectorAll('.chip').forEach((c) => c.classList.toggle('active', c === chip));
+    renderList();
+  });
+
+  /* ───────── 匯出 CSV ───────── */
+  $('#exportBtn').addEventListener('click', () => {
+    if (!claims.length) { alert('目前沒有資料可匯出。'); return; }
+
+    const head = ['編號', '申請人', '部門', '請款日期', '類別', '金額', '用途說明', '狀態'];
+    const rows = claims
+      .slice()
+      .sort((a, b) => a.createdAt - b.createdAt)
+      .map((c) => [
+        c.id, c.name, c.dept || '', c.date, c.category,
+        c.amount, c.note, STATUS_TEXT[c.status]
+      ]);
+
+    const csv = '\uFEFF' + [head, ...rows]
+      .map((r) => r.map((v) => '"' + String(v).replace(/"/g, '""') + '"').join(','))
+      .join('\r\n');
+
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `零用金請款_${todayStr()}.csv`;
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  });
+
+  /* ───────── 啟動 ───────── */
+  load();
+  $('#date').value = todayStr();
+  render();
+})();
+</script>
+</body>
+</html>
